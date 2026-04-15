@@ -1,0 +1,12 @@
+# Compiled binary
+felicity-battery
+
+# Runtime data (persisted on VPS, not in repo)
+data/
+
+# Credentials
+.env
+*.env
+
+# Claude Code session memory
+.claude/

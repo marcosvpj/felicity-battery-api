@@ -1,0 +1,20 @@
+services:
+  felicity-battery:
+    # DOCKER_IMAGE é setado no .env do VPS (ghcr.io/usuario/felicity-battery:latest)
+    # Localmente, omita DOCKER_IMAGE e use 'docker compose build' para construir.
+    image: ${DOCKER_IMAGE:-felicity-battery:dev}
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      FELICITY_USER: ${FELICITY_USER}
+      FELICITY_PASS: ${FELICITY_PASS}
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/health"]
+      interval: 2m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
