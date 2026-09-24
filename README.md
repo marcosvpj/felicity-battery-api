@@ -30,7 +30,7 @@ export FELICITY_PASS=suasenha
 |------|---------|-----------|
 | `-user` | `$FELICITY_USER` | E-mail da conta Felicity |
 | `-pass` | `$FELICITY_PASS` | Senha da conta |
-| `-device` | — | Serial do dispositivo (usa o primeiro se omitido) |
+| `-device` | `$FELICITY_DEVICE` | Serial do dispositivo (usa o primeiro se omitido) |
 | `-serve` | — | Inicia servidor HTTP (ex: `:8080`) |
 | `-watch` | `false` | Polling contínuo no modo CLI |
 | `-history` | `data/battery.jsonl` | Caminho do arquivo de histórico |
@@ -53,8 +53,10 @@ Sem dependências externas — apenas stdlib Go.
 
 ```bash
 docker compose build
-FELICITY_USER=email FELICITY_PASS=senha docker compose up
+FELICITY_USER=email FELICITY_PASS=senha FELICITY_DEVICE=SN docker compose up
 ```
+
+`FELICITY_DEVICE` é opcional — se omitido, a API retorna o primeiro dispositivo da conta.
 
 ---
 

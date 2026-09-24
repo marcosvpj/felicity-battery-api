@@ -10,6 +10,7 @@ services:
     environment:
       FELICITY_USER: ${FELICITY_USER}
       FELICITY_PASS: ${FELICITY_PASS}
+      FELICITY_DEVICE: ${FELICITY_DEVICE:-}
     volumes:
       - ./data:/data
     healthcheck:

@@ -16,7 +16,7 @@ func defaultHistoryPath() string {
 func main() {
 	user := flag.String("user", os.Getenv("FELICITY_USER"), "Account email (or set FELICITY_USER)")
 	pass := flag.String("pass", os.Getenv("FELICITY_PASS"), "Account password (or set FELICITY_PASS)")
-	sn := flag.String("device", "", "Device serial number (see Felicity app or API response)")
+	sn := flag.String("device", os.Getenv("FELICITY_DEVICE"), "Device serial number (or set FELICITY_DEVICE); uses the account's first device if omitted")
 	watch := flag.Bool("watch", false, "Keep running and refresh every 5 minutes (CLI mode)")
 	load := flag.Float64("load", 0, "Fixed load in watts for projection (e.g. -load 195)")
 	historyFile := flag.String("history", defaultHistoryPath(), "Path to JSONL history file; empty string disables recording")

@@ -34,6 +34,7 @@ mkdir -p ~/felicity-battery/data
 cat > ~/felicity-battery/.env << 'EOF'
 FELICITY_USER=seu@email.com
 FELICITY_PASS=suasenha
+FELICITY_DEVICE=serial_do_dispositivo
 DOCKER_IMAGE=ghcr.io/SEU_USUARIO_GITHUB/felicity-battery:latest
 EOF
 
@@ -95,14 +96,16 @@ Acompanhe em **Actions** no GitHub.
 cd felicity-battery
 
 # Modo CLI — uma leitura
-./felicity-battery -user EMAIL -pass SENHA
+./felicity-battery -user EMAIL -pass SENHA -device SN
 
 # Modo CLI — polling contínuo com histórico
-./felicity-battery -user EMAIL -pass SENHA -watch
+./felicity-battery -user EMAIL -pass SENHA -device SN -watch
 
 # Modo servidor
-./felicity-battery -user EMAIL -pass SENHA -serve :8080
+./felicity-battery -user EMAIL -pass SENHA -device SN -serve :8080
 ```
+
+`-device` (ou `FELICITY_DEVICE`) é opcional — se omitido, a API retorna o primeiro dispositivo da conta.
 
 ### Com Docker local
 
@@ -113,7 +116,7 @@ cd felicity-battery
 docker compose build
 
 # Subir
-FELICITY_USER=email FELICITY_PASS=senha docker compose up
+FELICITY_USER=email FELICITY_PASS=senha FELICITY_DEVICE=SN docker compose up
 ```
 
 ---
@@ -174,7 +177,7 @@ du -sh ~/felicity-battery/data/battery.jsonl
 |------|---------|-----------|
 | `-user` | `$FELICITY_USER` | E-mail da conta Felicity |
 | `-pass` | `$FELICITY_PASS` | Senha da conta |
-| `-device` | `074502417125380378` | Serial do dispositivo |
+| `-device` | `$FELICITY_DEVICE` | Serial do dispositivo (usa o primeiro se omitido) |
 | `-serve` | — | Inicia servidor HTTP (ex: `:8080`) |
 | `-watch` | `false` | Polling contínuo no modo CLI |
 | `-history` | `data/battery.jsonl` | Caminho do arquivo de histórico |
