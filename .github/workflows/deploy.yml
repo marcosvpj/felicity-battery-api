@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Build & Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Linux amd64 binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o felicity-battery .
+
+      - name: Copy binary to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: felicity-battery
+          target: '/root/felicity-battery-deploy'
+          overwrite: true
+          strip_components: 0
+
+      - name: Restart service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cp /root/felicity-battery/felicity-battery /root/felicity-battery/felicity-battery.bak
+            mv /root/felicity-battery-deploy/felicity-battery /root/felicity-battery/felicity-battery
+            chmod +x /root/felicity-battery/felicity-battery
+            rmdir /root/felicity-battery-deploy
+            systemctl restart felicitybattery
+
+            for i in $(seq 1 15); do
+              code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/health || echo "000")
+              if [ "$code" = "200" ] || [ "$code" = "503" ]; then
+                echo "Serviço no ar (HTTP $code)"
+                echo "Deploy concluído: $(date -u)"
+                exit 0
+              fi
+              sleep 2
+            done
+
+            echo "Serviço não respondeu após o restart, últimos logs:"
+            journalctl -u felicitybattery -n 50 --no-pager
+            exit 1

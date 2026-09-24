@@ -2,12 +2,12 @@
 
 ## Visão geral
 
-O CI/CD usa GitHub Actions + GitHub Container Registry (GHCR):
+Deploy sem Docker: bin em systemd, Caddy faz reverse proxy HTTPS na frente da porta 8080.
 
 ```
 push → main
   └── CI: go vet + go build
-  └── CD: build imagem Docker → push GHCR → SSH VPS → docker compose up
+  └── CD: cross-compile linux/amd64 → scp pro VPS → systemctl restart felicitybattery
 ```
 
 ---
@@ -24,59 +24,30 @@ Em **Settings → Secrets and variables → Actions**, adicione:
 
 ---
 
-## 2. Setup inicial no VPS (uma vez)
+## 2. Setup na VPS (já feito)
 
-```bash
-# Criar estrutura de diretórios
-mkdir -p ~/felicity-battery/data
-
-# Criar o .env com credenciais
-cat > ~/felicity-battery/.env << 'EOF'
-FELICITY_USER=seu@email.com
-FELICITY_PASS=suasenha
-FELICITY_DEVICE=serial_do_dispositivo
-DOCKER_IMAGE=ghcr.io/SEU_USUARIO_GITHUB/felicity-battery:latest
-EOF
-
-# Copiar o docker-compose.yml (da sua máquina local)
-scp felicity-battery/docker-compose.yml user@SEU_VPS_IP:~/felicity-battery/
+```
+/root/felicity-battery/felicity-battery   # binário
+/root/felicity-battery/data/              # histórico (battery.jsonl)
 ```
 
-Se o repositório GitHub for **privado**, autentique o Docker no VPS para pull do GHCR:
-
-```bash
-# No VPS — gere um token em github.com/settings/tokens (escopo: read:packages)
-echo SEU_GITHUB_TOKEN | docker login ghcr.io -u SEU_USUARIO_GITHUB --password-stdin
-```
-
-Se o repositório for **público**, o GHCR é público automaticamente — sem autenticação necessária.
+Serviço systemd `felicitybattery.service` roda o binário e reinicia sozinho em caso de crash.
+Credenciais (`FELICITY_USER`/`FELICITY_PASS`/`FELICITY_DEVICE`) ficam definidas direto na unit
+(`Environment=`), não em `.env`. Caddy já faz o reverse proxy HTTPS pra porta 8080 — o workflow
+não mexe nisso.
 
 ---
 
-## 3. Primeiro deploy manual (opcional)
+## 3. Deploy automático (via CI/CD)
 
-Para validar o setup antes de abrir o CI/CD:
+Qualquer push pra `main` dispara o workflow `.github/workflows/deploy.yml`:
 
-```bash
-# No VPS
-cd ~/felicity-battery
-docker compose pull
-docker compose --env-file .env up -d
-docker compose logs -f
-```
-
-Verificar:
-
-```bash
-curl http://localhost:8080/api/health
-curl http://localhost:8080/api/status
-```
-
----
-
-## 4. Deploy automático (via CI/CD)
-
-A partir daqui, qualquer push para `main` com mudanças em `felicity-battery/**` dispara o pipeline automaticamente.
+1. Cross-compila `GOOS=linux GOARCH=amd64`
+2. `scp` o binário pro VPS em `/root/felicity-battery-deploy/`
+3. Via SSH: guarda um backup (`felicity-battery.bak`), sobrescreve o binário, `systemctl restart felicitybattery`
+4. Espera até 30s o serviço responder em `/api/health` (aceita 200 ou 503 — 503 só significa que
+   ainda não rodou o primeiro poll, o que é normal logo após o restart); se não responder, o job
+   falha e imprime os últimos logs do `journalctl`.
 
 ```bash
 # Na sua máquina local
@@ -88,9 +59,17 @@ git push origin main
 
 Acompanhe em **Actions** no GitHub.
 
+Rollback manual, se precisar:
+
+```bash
+ssh root@SEU_VPS_IP
+cp ~/felicity-battery/felicity-battery.bak ~/felicity-battery/felicity-battery
+systemctl restart felicitybattery
+```
+
 ---
 
-## 5. Dev local (sem Docker)
+## 4. Dev local
 
 ```bash
 cd felicity-battery
@@ -107,7 +86,7 @@ cd felicity-battery
 
 `-device` (ou `FELICITY_DEVICE`) é opcional — se omitido, a API retorna o primeiro dispositivo da conta.
 
-### Com Docker local
+### Com Docker (só dev local, produção não usa)
 
 ```bash
 cd felicity-battery
@@ -121,7 +100,7 @@ FELICITY_USER=email FELICITY_PASS=senha FELICITY_DEVICE=SN docker compose up
 
 ---
 
-## 6. Endpoints da API
+## 5. Endpoints da API
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
@@ -153,17 +132,14 @@ curl "https://SEU_VPS_IP:8080/api/history?limit=10000"
 
 ---
 
-## 7. Manutenção
+## 6. Manutenção
 
 ```bash
 # Ver logs
-docker compose logs -f
+journalctl -u felicitybattery -f
 
 # Reiniciar
-docker compose restart
-
-# Atualizar imagem manualmente (sem esperar o CI)
-docker compose pull && docker compose up -d
+systemctl restart felicitybattery
 
 # Ver uso de disco do histórico
 du -sh ~/felicity-battery/data/battery.jsonl
